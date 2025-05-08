@@ -40,8 +40,9 @@ export default function ViewMoreModal({ title, content, onClose }) {
     console.log(`ViewMoreModal ${mapIdRef.current}: useEffect triggered`);
     
     // Only proceed if this is a Map View with coordinates
-    if (title === 'Map View' && content.coordinates && mapRef.current) {
-      console.log(`ViewMoreModal ${mapIdRef.current}: Map view detected with coordinates`);
+    if (title === 'Map View' && content.coordinates && content.coordinates.lat && 
+        content.coordinates.lng && mapRef.current) {
+      console.log(`ViewMoreModal ${mapIdRef.current}: Map view detected with coordinates`, content.coordinates);
       
       // Store the current map ID for closure reference
       const currentMapId = mapIdRef.current;
@@ -58,6 +59,9 @@ export default function ViewMoreModal({ title, content, onClose }) {
           
           // Ensure HERE Maps scripts are loaded
           await loadHereMapsScripts();
+          
+          // Add a small delay to make sure the modal is fully rendered
+          await new Promise(resolve => setTimeout(resolve, 300));
           
           // Check if this component is still mounted and the ref is still valid
           if (!mapRef.current) {
@@ -77,6 +81,8 @@ export default function ViewMoreModal({ title, content, onClose }) {
           const mapWidth = mapRef.current.offsetWidth;
           const mapHeight = mapRef.current.offsetHeight;
           
+          console.log(`ViewMoreModal ${currentMapId}: Map container size: ${mapWidth}x${mapHeight}`);
+          
           if (mapWidth === 0 || mapHeight === 0) {
             throw new Error(`Map container has no size (${mapWidth}x${mapHeight})`);
           }
@@ -93,7 +99,7 @@ export default function ViewMoreModal({ title, content, onClose }) {
           
           console.log(`ViewMoreModal ${currentMapId}: Creating map in element`, mapRef.current);
           
-          // Instantiate the map
+          // Instantiate the map with FIXED options
           const map = new window.H.Map(
             mapRef.current,
             defaultLayers.vector.normal.map,
@@ -103,12 +109,25 @@ export default function ViewMoreModal({ title, content, onClose }) {
                 lng: content.coordinates.lng 
               },
               zoom: 15,
-              pixelRatio: window.devicePixelRatio || 1
+              pixelRatio: window.devicePixelRatio || 1,
+              // Add these options to prevent the lookAtManipulator error
+              renderBaseBackground: {
+                lower: 0,
+                higher: 1
+              }
             }
           );
           
+          // Force a resize immediately after creation
+          if (map && map.getViewPort()) {
+            map.getViewPort().resize();
+          }
+          
           // Create a unique marker ID for this map instance
           const markerId = `marker-${currentMapId}`;
+          
+          // FIXED: Wait a moment before adding UI components
+          await new Promise(resolve => setTimeout(resolve, 100));
           
           // Create default UI and add zoom, panning, etc.
           const ui = window.H.ui.UI.createDefault(map, defaultLayers);
@@ -131,6 +150,11 @@ export default function ViewMoreModal({ title, content, onClose }) {
           
           // Add the marker to the map
           map.addObject(marker);
+          
+          // Force another resize to be extra sure
+          if (map && map.getViewPort()) {
+            map.getViewPort().resize();
+          }
           
           // Add resize listener
           const resizeListener = () => {
@@ -164,10 +188,10 @@ export default function ViewMoreModal({ title, content, onClose }) {
         }
       };
 
-      // Initialize the map with a slight delay to ensure proper DOM rendering
+      // Initialize the map with a longer delay to ensure proper DOM rendering
       const initTimer = setTimeout(() => {
         initializeMap();
-      }, 100); // Slightly longer delay than the panel to avoid conflict
+      }, 400); // Significantly longer delay for modal to be fully rendered
 
       return () => {
         console.log(`ViewMoreModal ${currentMapId}: Cleanup running`);
@@ -189,7 +213,12 @@ export default function ViewMoreModal({ title, content, onClose }) {
           <div 
             ref={mapRef} 
             className="bg-indigo-100 h-64 w-full flex items-center justify-center rounded-xl border border-indigo-200"
-            style={{ position: 'relative', overflow: 'hidden' }}
+            style={{ 
+              position: 'relative', 
+              overflow: 'hidden',
+              minHeight: '300px',  // FIXED: Ensure minimum height
+              display: 'block'     // FIXED: Ensure display is block
+            }}
             data-component="modal-map-container"
             data-map-id={mapIdRef.current}
           >

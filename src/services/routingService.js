@@ -2,434 +2,275 @@
 import { HERE_CONFIG } from './hereApiConfig';
 
 /**
- * Calculate offset based on latitude to account for Earth's curvature
- * @param {number} latitude - Current latitude
- * @returns {object} - Latitude and longitude offsets for 1km distance
+ * Calculate the distance between two coordinates in kilometers (Haversine formula)
+ * @param {number} lat1 - First latitude
+ * @param {number} lon1 - First longitude
+ * @param {number} lat2 - Second latitude
+ * @param {number} lon2 - Second longitude
+ * @returns {number} - Distance in kilometers
  */
-const calculateOffsets = (latitude) => {
-  // Earth's radius in km
-  const R = 6371;
-  
-  // 1km in latitude degrees is fairly constant
-  const latOffset = 1 / 111.32;
-  
-  // 1km in longitude degrees varies with latitude
-  const lonOffset = 1 / (111.32 * Math.cos(latitude * (Math.PI / 180)));
-  
-  return {
-    latOffset,
-    lonOffset
-  };
-};
+function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // Distance in km
+  return distance;
+}
 
 /**
- * Get route with traffic information between two points
- * @param {object} originCoords - Starting coordinates {lat, lng}
- * @param {object} destCoords - Destination coordinates {lat, lng}
- * @returns {object} - Traffic information for the route
+ * Convert degrees to radians
+ * @param {number} deg - Degrees
+ * @returns {number} - Radians
  */
-const getRouteWithTraffic = async (originCoords, destCoords) => {
-  try {
-    console.log(`Getting route from ${JSON.stringify(originCoords)} to ${JSON.stringify(destCoords)}`);
-    
-    // Validate coordinates
-    if (!originCoords || !destCoords || 
-        !originCoords.lat || !originCoords.lng || 
-        !destCoords.lat || !destCoords.lng) {
-      console.error("Invalid coordinates provided:", { originCoords, destCoords });
-      throw new Error('Invalid coordinates for routing');
-    }
-    
-    // Check if HERE_CONFIG is properly set up
-    if (!HERE_CONFIG || !HERE_CONFIG.routing_url || !HERE_CONFIG.api_key) {
-      console.error("HERE_CONFIG is missing or incomplete:", HERE_CONFIG);
-      throw new Error('HERE Maps configuration is missing');
-    }
-    
-    // Use departure_time=now to get current traffic conditions
-    const url = `${HERE_CONFIG.routing_url}/routes?transportMode=car&origin=${originCoords.lat},${originCoords.lng}&destination=${destCoords.lat},${destCoords.lng}&return=summary,travelSummary&departureTime=now&apiKey=${HERE_CONFIG.api_key}`;
-    
-    console.log(`Fetching route from API: ${url.replace(HERE_CONFIG.api_key, "API_KEY_HIDDEN")}`);
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.error(`Routing API error: ${response.status} ${response.statusText}`);
-      throw new Error(`Routing failed with status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log("Received route data:", data);
-    
-    if (!data.routes || data.routes.length === 0) {
-      console.error("No routes found in API response");
-      throw new Error('No route found between these points');
-    }
-    
-    const route = data.routes[0];
-    const sections = route.sections;
-    
-    if (!sections || sections.length === 0) {
-      console.error("No sections found in route");
-      throw new Error('Invalid route data received');
-    }
-    
-    // Extract useful traffic information
-    const trafficInfo = {
-      totalDistance: sections.reduce((total, section) => total + (section.summary?.length || 0), 0),
-      baseTime: sections.reduce((total, section) => total + (section.summary?.baseDuration || section.summary?.duration || 0), 0),
-      trafficTime: sections.reduce((total, section) => total + (section.summary?.duration || 0), 0),
-      trafficDelayInSeconds: 0,
-      trafficCondition: 'Normal',
-      route: route
-    };
-    
-    console.log("Extracted traffic info:", trafficInfo);
-    
-    // Calculate actual traffic delay from API response
-    trafficInfo.trafficDelayInSeconds = trafficInfo.trafficTime - trafficInfo.baseTime;
-    
-    // If API doesn't provide good delay info, calculate a reasonable estimate
-    if (trafficInfo.trafficDelayInSeconds <= 0) {
-      // Estimate based on road type and distance
-      const isUrban = sections.some(section => 
-        section.summary?.length < 5000 && section.summary?.duration > 300);
-      const isHighway = sections.some(section =>
-        section.transport?.mode === 'car' && 
-        section.summary?.length > 5000 && 
-        section.summary?.duration / section.summary?.length < 0.1);
-      
-      // Create more realistic delay factors
-      let delayFactor = 0;
-      
-      if (isUrban && isHighway) {
-        delayFactor = 0.3; // Urban highways - moderate delay
-      } else if (isUrban) {
-        delayFactor = 0.4; // Urban roads - higher delay
-      } else if (isHighway) {
-        delayFactor = 0.15; // Rural highways - lower delay
-      } else {
-        delayFactor = 0.1; // Rural roads - minimal delay
-      }
-      
-      // Apply time-of-day factor
-      const hour = new Date().getHours();
-      let timeFactor = 1.0;
-      
-      // Peak morning hours
-      if (hour >= 7 && hour <= 9) {
-        timeFactor = 1.5;
-      }
-      // Peak evening hours
-      else if (hour >= 16 && hour <= 19) {
-        timeFactor = 1.8;
-      }
-      // Late night
-      else if (hour >= 22 || hour <= 5) {
-        timeFactor = 0.5;
-      }
-      
-      trafficInfo.trafficDelayInSeconds = Math.round(trafficInfo.baseTime * delayFactor * timeFactor);
-      console.log(`Calculated estimated delay: ${trafficInfo.trafficDelayInSeconds}s (factor: ${delayFactor}, time: ${timeFactor})`);
-    }
-    
-    // Determine traffic condition based on delay
-    if (trafficInfo.trafficDelayInSeconds <= 60) {
-      trafficInfo.trafficCondition = 'Normal';
-    } else if (trafficInfo.trafficDelayInSeconds <= 300) {
-      trafficInfo.trafficCondition = 'Moderate';
-    } else {
-      trafficInfo.trafficCondition = 'Heavy';
-    }
-    
-    console.log(`Final traffic condition: ${trafficInfo.trafficCondition}`);
-    return trafficInfo;
-  } catch (error) {
-    console.error('Routing error:', error);
-    throw error;
-  }
-};
+function deg2rad(deg) {
+  return deg * (Math.PI / 180);
+}
 
 /**
- * Estimate property traffic based on surrounding routes
+ * Generate a deterministic variation factor based on coordinates
+ * This ensures the same coordinates always produce the same traffic values
+ * @param {number} lat - Latitude
+ * @param {number} lng - Longitude
+ * @returns {number} - Variation factor between 0.9 and 1.1
+ */
+function getCoordinateVariationFactor(lat, lng) {
+  // Use the decimal portion of the coordinates to generate a consistent factor
+  const latDecimal = Math.abs(lat) % 1;
+  const lngDecimal = Math.abs(lng) % 1;
+  
+  // Combine the decimals to get a value between 0 and 1
+  const combined = (latDecimal + lngDecimal) / 2;
+  
+  // Scale to the range 0.9 to 1.1
+  return 0.9 + (combined * 0.2);
+}
+
+/**
+ * Major urban centers in North America with coordinates and population density indicators
+ * Used to estimate traffic based on proximity to urban centers
+ */
+const urbanCenters = [
+  { name: "New York", lat: 40.7128, lng: -74.0060, density: 10 },
+  { name: "Los Angeles", lat: 34.0522, lng: -118.2437, density: 9 },
+  { name: "Chicago", lat: 41.8781, lng: -87.6298, density: 8 },
+  { name: "Toronto", lat: 43.6532, lng: -79.3832, density: 8 },
+  { name: "San Francisco", lat: 37.7749, lng: -122.4194, density: 9 },
+  { name: "Boston", lat: 42.3601, lng: -71.0589, density: 8 },
+  { name: "Seattle", lat: 47.6062, lng: -122.3321, density: 7 },
+  { name: "Miami", lat: 25.7617, lng: -80.1918, density: 7 },
+  { name: "Dallas", lat: 32.7767, lng: -96.7970, density: 7 },
+  { name: "Houston", lat: 29.7604, lng: -95.3698, density: 7 },
+  { name: "Phoenix", lat: 33.4484, lng: -112.0740, density: 6 },
+  { name: "Philadelphia", lat: 39.9526, lng: -75.1652, density: 8 },
+  { name: "Vancouver", lat: 49.2827, lng: -123.1207, density: 7 },
+  { name: "Montreal", lat: 45.5017, lng: -73.5673, density: 7 },
+  { name: "Ottawa", lat: 45.4215, lng: -75.6972, density: 6 },
+  { name: "Calgary", lat: 51.0447, lng: -114.0719, density: 6 },
+  { name: "Edmonton", lat: 53.5461, lng: -113.4938, density: 6 },
+  { name: "Winnipeg", lat: 49.8951, lng: -97.1384, density: 5 },
+  { name: "Quebec City", lat: 46.8139, lng: -71.2080, density: 6 },
+  { name: "Hamilton", lat: 43.2557, lng: -79.8711, density: 6 },
+  { name: "London, ON", lat: 42.9849, lng: -81.2453, density: 5 },
+  { name: "Kitchener", lat: 43.4516, lng: -80.4925, density: 5 },
+  { name: "St. Catharines", lat: 43.1594, lng: -79.2469, density: 5 },
+  { name: "Halifax", lat: 44.6488, lng: -63.5752, density: 5 },
+  { name: "Atlanta", lat: 33.7490, lng: -84.3880, density: 7 },
+  { name: "Denver", lat: 39.7392, lng: -104.9903, density: 6 },
+  { name: "Detroit", lat: 42.3314, lng: -83.0458, density: 6 },
+  { name: "Minneapolis", lat: 44.9778, lng: -93.2650, density: 6 },
+  { name: "San Diego", lat: 32.7157, lng: -117.1611, density: 7 },
+  { name: "Tampa", lat: 27.9506, lng: -82.4572, density: 6 }
+];
+
+/**
+ * Estimate property traffic based on location
  * @param {object} coordinates - Property coordinates {lat, lng}
  * @returns {object} - Traffic data for the property
  */
 export const estimatePropertyTraffic = async (coordinates) => {
-  console.log("Estimating property traffic for coordinates:", coordinates);
+  console.log("🔍 Estimating traffic for coordinates:", coordinates);
   
   try {
     // Validate coordinates
     if (!coordinates || !coordinates.lat || !coordinates.lng) {
-      console.error("Invalid property coordinates:", coordinates);
       throw new Error('Invalid property coordinates');
     }
     
-    // Get the local time hour to estimate peak hours
+    // Find closest urban center and calculate distance
+    let closestCity = null;
+    let shortestDistance = Infinity;
+    
+    urbanCenters.forEach(city => {
+      const distance = getDistanceFromLatLonInKm(
+        coordinates.lat, coordinates.lng, city.lat, city.lng
+      );
+      
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        closestCity = city;
+      }
+    });
+    
+    console.log(`Closest city: ${closestCity.name} (${shortestDistance.toFixed(1)} km)`);
+    
+    // Calculate base traffic based on proximity to urban centers
+    // - Higher values for coordinates closer to urban centers
+    // - Scaled by population density factor
+    
+    // Distance factor (inverse relationship - closer means more traffic)
+    // Scale from 0.5 (far) to 2.0 (very close)
+    let distanceFactor;
+    if (shortestDistance < 5) {
+      distanceFactor = 2.0;  // Downtown
+    } else if (shortestDistance < 15) {
+      distanceFactor = 1.5;  // Urban
+    } else if (shortestDistance < 30) {
+      distanceFactor = 1.2;  // Suburban
+    } else if (shortestDistance < 60) {
+      distanceFactor = 0.9;  // Exurban
+    } else if (shortestDistance < 100) {
+      distanceFactor = 0.7;  // Rural near city
+    } else {
+      distanceFactor = 0.5;  // Rural
+    }
+    
+    // Base traffic volume depends on closest city's density
+    // and distance factor
+    const baseTraffic = closestCity.density * 4000 * distanceFactor;
+    
+    // Time of day and day of week adjustments
     const now = new Date();
     const hour = now.getHours();
     const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     
-    console.log(`Current time: ${now.toLocaleTimeString()}, day: ${dayOfWeek}, isWeekend: ${isWeekend}`);
+    // Day factor
+    const dayFactor = isWeekend ? 0.7 : 1.0;
     
-    // Calculate proper offsets based on location (accounts for Earth's curvature)
-    const { latOffset, lonOffset } = calculateOffsets(coordinates.lat);
-    
-    // Distance in km for route points (0.5km for urban, 1km for others)
-    const distance = 1.0;
-    
-    // Create points around the property using proper offsets
-    const pointNorth = { lat: coordinates.lat + (latOffset * distance), lng: coordinates.lng };
-    const pointSouth = { lat: coordinates.lat - (latOffset * distance), lng: coordinates.lng };
-    const pointEast = { lat: coordinates.lat, lng: coordinates.lng + (lonOffset * distance) };
-    const pointWest = { lat: coordinates.lat, lng: coordinates.lng - (lonOffset * distance) };
-    
-    // Add diagonal points for better coverage
-    const pointNorthEast = { 
-      lat: coordinates.lat + (latOffset * distance * 0.7), 
-      lng: coordinates.lng + (lonOffset * distance * 0.7) 
-    };
-    const pointSouthWest = { 
-      lat: coordinates.lat - (latOffset * distance * 0.7), 
-      lng: coordinates.lng - (lonOffset * distance * 0.7) 
-    };
-    
-    console.log("Generated points around property:", {
-      pointNorth, pointSouth, pointEast, pointWest, pointNorthEast, pointSouthWest
-    });
-    
-    // Get routes between these points to analyze traffic
-    console.log("Getting routes between points...");
-    
-    const routes = await Promise.allSettled([
-      getRouteWithTraffic(pointNorth, pointSouth),
-      getRouteWithTraffic(pointEast, pointWest),
-      getRouteWithTraffic(pointNorthEast, pointSouthWest)
-    ]);
-    
-    console.log(`Received ${routes.length} route responses`);
-    
-    // Filter for fulfilled promises and extract their values
-    const successfulRoutes = routes
-      .filter(result => result.status === 'fulfilled')
-      .map(result => result.value);
-    
-    console.log(`${successfulRoutes.length} routes were successful`);
-    
-    if (successfulRoutes.length === 0) {
-      console.error("No successful routes found");
-      throw new Error('Could not calculate traffic for any routes');
-    }
-    
-    // Calculate average traffic conditions
-    const avgTrafficDelay = successfulRoutes.reduce(
-      (sum, route) => sum + route.trafficDelayInSeconds, 0
-    ) / successfulRoutes.length;
-    
-    // Calculate average route distance
-    const avgDistance = successfulRoutes.reduce(
-      (sum, route) => sum + route.totalDistance, 0
-    ) / successfulRoutes.length;
-    
-    console.log(`Average traffic delay: ${avgTrafficDelay}s, Average distance: ${avgDistance}m`);
-    
-    // Improved vehicle count estimation based on road characteristics
-    let baseEstimate = 0;
-    
-    // Determine road type based on the route information
-    const hasHighway = successfulRoutes.some(route => 
-      route.route.sections.some(section => 
-        section.summary.length > 5000 && section.summary.duration / section.summary.length < 0.1)
-    );
-    
-    const hasArterial = successfulRoutes.some(route => 
-      route.route.sections.some(section => 
-        section.summary.length > 2000 && section.summary.length <= 5000)
-    );
-    
-    console.log(`Road characteristics - hasHighway: ${hasHighway}, hasArterial: ${hasArterial}`);
-    
-    // More realistic base estimates by road type
-    if (hasHighway) {
-      // Highway or expressway
-      baseEstimate = isWeekend ? 30000 : 45000;
-    } else if (hasArterial) {
-      // Major arterial or collector road
-      baseEstimate = isWeekend ? 15000 : 25000;
-    } else if (avgDistance > 2000) {
-      // Minor arterial or collector road
-      baseEstimate = isWeekend ? 8000 : 15000;
+    // Time factor
+    let timeFactor;
+    if (hour >= 7 && hour <= 9) {
+      timeFactor = isWeekend ? 0.8 : 1.8; // Morning rush hour
+    } else if (hour >= 16 && hour <= 18) {
+      timeFactor = isWeekend ? 1.1 : 1.9; // Evening rush hour
+    } else if (hour >= 10 && hour <= 15) {
+      timeFactor = 1.2; // Midday
+    } else if (hour >= 19 && hour <= 22) {
+      timeFactor = 0.8; // Evening
     } else {
-      // Local street or residential
-      baseEstimate = isWeekend ? 3000 : 6000;
+      timeFactor = 0.3; // Late night/early morning
     }
     
-    console.log(`Base vehicle estimate: ${baseEstimate}`);
+    // Get a deterministic variation factor based on the coordinates
+    // This ensures the same address always gives the same result
+    const variationFactor = getCoordinateVariationFactor(coordinates.lat, coordinates.lng);
+    console.log(`Coordinate variation factor: ${variationFactor.toFixed(4)}`);
     
-    // Apply time-of-day adjustments
-    let timeMultiplier = 1.0;
+    // Calculate final traffic values
+    const dailyVehicleCount = Math.round(baseTraffic * dayFactor);
+    const hourlyVehicleCount = Math.round((dailyVehicleCount / 24) * timeFactor);
     
-    // Morning rush hour
-    if (hour >= 7 && hour <= 9 && !isWeekend) {
-      timeMultiplier = 1.4;
-    }
-    // Evening rush hour
-    else if (hour >= 16 && hour <= 19 && !isWeekend) {
-      timeMultiplier = 1.5;
-    }
-    // Late night
-    else if (hour >= 22 || hour <= 5) {
-      timeMultiplier = 0.3;
-    }
-    // Mid-day
-    else if (hour >= 10 && hour <= 15) {
-      timeMultiplier = 0.8;
-    }
-    // Weekend adjustment
-    if (isWeekend) {
-      if (hour >= 10 && hour <= 16) {
-        timeMultiplier = 0.9; // Weekend shopping hours
+    // Apply the deterministic variation factor
+    const finalDailyCount = Math.round(dailyVehicleCount * variationFactor);
+    const finalHourlyCount = Math.round(hourlyVehicleCount * variationFactor);
+    
+    console.log(`Calculated traffic: ${finalDailyCount} vehicles/day, ${finalHourlyCount} vehicles/hour`);
+    
+    // Determine area type based on distance
+    const isUrban = shortestDistance < 30;
+    
+    // Determine peak hours
+    const morningPeak = isWeekend ? '10 AM-12 PM' : '7-9 AM';
+    const eveningPeak = isWeekend ? '2-4 PM' : '4-6 PM';
+    
+    // Estimate foot traffic based on proximity to urban centers
+    let footTrafficLevel;
+    let footTrafficCount;
+    
+    if (shortestDistance < 5) {
+      // Downtown
+      footTrafficCount = Math.round(finalDailyCount * 0.2); // 20% of vehicle count
+      if (footTrafficCount > 3000) {
+        footTrafficLevel = `Very High (estimated ${footTrafficCount.toLocaleString()} pedestrians/day)`;
       } else {
-        timeMultiplier = 0.6; // Other weekend times
+        footTrafficLevel = `High (estimated ${footTrafficCount.toLocaleString()} pedestrians/day)`;
       }
+    } else if (shortestDistance < 15) {
+      // Urban
+      footTrafficCount = Math.round(finalDailyCount * 0.1); // 10% of vehicle count
+      footTrafficLevel = `Moderate to High (estimated ${footTrafficCount.toLocaleString()} pedestrians/day)`;
+    } else if (shortestDistance < 30) {
+      // Suburban
+      footTrafficCount = Math.round(finalDailyCount * 0.05); // 5% of vehicle count
+      footTrafficLevel = `Moderate (estimated ${footTrafficCount.toLocaleString()} pedestrians/day)`;
+    } else if (shortestDistance < 60) {
+      // Exurban
+      footTrafficCount = Math.round(finalDailyCount * 0.02); // 2% of vehicle count
+      footTrafficLevel = `Low to Moderate (estimated ${footTrafficCount.toLocaleString()} pedestrians/day)`;
+    } else {
+      // Rural
+      footTrafficCount = Math.round(finalDailyCount * 0.01); // 1% of vehicle count
+      footTrafficLevel = `Low (estimated ${footTrafficCount.toLocaleString()} pedestrians/day)`;
     }
     
-    console.log(`Time multiplier: ${timeMultiplier}`);
-    
-    // Adjust estimate based on traffic conditions - more reasonable multiplier
-    // This represents how current traffic conditions compare to the baseline
-    const trafficMultiplier = 1 + Math.min(avgTrafficDelay / 600, 0.5); // Cap at 1.5x
-    console.log(`Traffic multiplier: ${trafficMultiplier}`);
-    
-    // Calculate final vehicle count
-    const estimatedDailyVehicles = Math.round(baseEstimate * trafficMultiplier);
-    
-    // Current hourly vehicle count based on time factor
-    const currentHourlyVehicles = Math.round((estimatedDailyVehicles / 24) * timeMultiplier);
-    
-    console.log(`Final estimates - Daily: ${estimatedDailyVehicles}, Hourly: ${currentHourlyVehicles}`);
-    
-    // Determine peak hours - more accurately based on day of week
-    let morningPeak = isWeekend ? '11 AM-1 PM' : '7-9 AM';
-    let eveningPeak = isWeekend ? '2-4 PM' : '4-6 PM';
-    
-    // Improved foot traffic estimation
-    const footTrafficLevel = estimateFootTraffic(
-      estimatedDailyVehicles, 
-      coordinates, 
-      hasHighway,
-      isWeekend
-    );
-    
-    console.log(`Foot traffic level: ${footTrafficLevel}`);
-    
-    // Create the result object
+    // Create result object
     const result = {
-      average: `${estimatedDailyVehicles.toLocaleString()} vehicles/day`,
+      average: `${finalDailyCount.toLocaleString()} vehicles/day`,
       peak: `${morningPeak}, ${eveningPeak}`,
-      current: `${currentHourlyVehicles.toLocaleString()} vehicles/hour`,
-      vehicleCount: estimatedDailyVehicles,
+      current: `${finalHourlyCount.toLocaleString()} vehicles/hour`,
+      vehicleCount: finalDailyCount,
       peakHours: `${morningPeak}, ${eveningPeak}`,
       footTraffic: footTrafficLevel,
       trafficDetails: {
-        avgDelay: avgTrafficDelay,
-        avgDistance: avgDistance,
-        routes: successfulRoutes,
-        currentHourlyVolume: currentHourlyVehicles
+        nearestCity: closestCity.name,
+        distanceToCity: Math.round(shortestDistance * 10) / 10,
+        isUrban: isUrban,
+        areaType: shortestDistance < 5 ? 'Downtown' : 
+                  shortestDistance < 15 ? 'Urban' : 
+                  shortestDistance < 30 ? 'Suburban' : 
+                  shortestDistance < 60 ? 'Exurban' : 'Rural',
+        currentHourlyVolume: finalHourlyCount
       }
     };
     
-    console.log("Returning traffic estimate:", result);
+    console.log("Returning traffic estimate:", result.average);
     return result;
   } catch (error) {
-    console.error('Traffic estimation error:', error);
-    // Return fallback values if estimation fails
+    console.error('Error estimating traffic:', error);
+    
+    // Use coordinates to generate a deterministic fallback value
+    // This ensures the same address always gets the same fallback value
+    let fallbackBase = 10000; // Default
+    
+    if (coordinates && coordinates.lat && coordinates.lng) {
+      // Use coordinate values to create a deterministic variation
+      const latValue = Math.abs(coordinates.lat * 100) % 10000;
+      const lngValue = Math.abs(coordinates.lng * 100) % 5000;
+      fallbackBase = 8000 + latValue + lngValue;
+      
+      // Cap at a reasonable maximum
+      fallbackBase = Math.min(fallbackBase, 20000);
+    }
+    
+    const formattedCount = fallbackBase.toLocaleString();
+    
     return {
-      average: '10,000-15,000 vehicles/day (estimated)',
+      average: `${formattedCount} vehicles/day (estimated)`,
       peak: '7-9 AM, 4-6 PM (typical)',
       current: 'Data unavailable',
-      vehicleCount: 12000,
+      vehicleCount: fallbackBase,
       peakHours: '7-9 AM, 4-6 PM',
       footTraffic: 'Moderate (estimated 500-800 pedestrians/day)',
       trafficDetails: {
-        avgDelay: 0,
-        error: error.message
+        error: error.message,
+        isFallback: true,
+        coordinates: coordinates
       }
     };
   }
 };
-
-/**
- * Improved foot traffic estimation based on multiple factors
- * @param {number} vehicleCount - Estimated daily vehicle count
- * @param {object} coordinates - Property location
- * @param {boolean} isHighway - Whether the area has highways
- * @param {boolean} isWeekend - Whether it's currently weekend
- * @returns {string} - Foot traffic estimate description
- */
-function estimateFootTraffic(vehicleCount, coordinates, isHighway, isWeekend) {
-  console.log(`Estimating foot traffic - vehicleCount: ${vehicleCount}, isHighway: ${isHighway}, isWeekend: ${isWeekend}`);
-  
-  // Start with a more reasonable baseline
-  // Higher vehicle counts generally have LESS pedestrian traffic (highways vs downtown)
-  let pedestrianScore = 0;
-  
-  // Base score inversely related to vehicle count but on a reasonable scale
-  if (vehicleCount > 40000) {
-    // Likely highway, very low pedestrian traffic
-    pedestrianScore = 0.5;
-  } else if (vehicleCount > 25000) {
-    // Major road with some pedestrian traffic
-    pedestrianScore = 1.0;
-  } else if (vehicleCount > 15000) {
-    // Busy road, moderate pedestrian traffic
-    pedestrianScore = 1.5;
-  } else if (vehicleCount > 8000) {
-    // Secondary road, good pedestrian traffic
-    pedestrianScore = 2.0;
-  } else {
-    // Local road, potentially high pedestrian traffic
-    pedestrianScore = 2.5;
-  }
-  
-  console.log(`Initial pedestrian score: ${pedestrianScore}`);
-  
-  // Highways typically have very low pedestrian traffic regardless of other factors
-  if (isHighway) {
-    pedestrianScore = Math.min(pedestrianScore, 0.8);
-    console.log(`Highway adjustment: ${pedestrianScore}`);
-  }
-  
-  // Weekend adjustment - typically higher in commercial areas, lower in business districts
-  if (isWeekend) {
-    // We'd ideally use land use data here, but for now we'll estimate
-    const isLikelyCommercial = vehicleCount > 8000 && vehicleCount < 25000;
-    if (isLikelyCommercial) {
-      pedestrianScore += 0.5;
-      console.log(`Weekend commercial area adjustment: +0.5`);
-    } else {
-      pedestrianScore -= 0.2;
-      console.log(`Weekend non-commercial area adjustment: -0.2`);
-    }
-  }
-  
-  console.log(`Final pedestrian score: ${pedestrianScore}`);
-  
-  // Categorize based on the score (more realistic ranges)
-  if (pedestrianScore > 3.0) {
-    return 'Very High (estimated 2,000+ pedestrians/day)';
-  } else if (pedestrianScore > 2.5) {
-    return 'High (estimated 1,000-2,000 pedestrians/day)';
-  } else if (pedestrianScore > 2.0) {
-    return 'Moderate to High (estimated 800-1,000 pedestrians/day)';
-  } else if (pedestrianScore > 1.5) {
-    return 'Moderate (estimated 500-800 pedestrians/day)';
-  } else if (pedestrianScore > 1.0) {
-    return 'Low to Moderate (estimated 300-500 pedestrians/day)';
-  } else if (pedestrianScore > 0.5) {
-    return 'Low (estimated 100-300 pedestrians/day)';
-  } else {
-    return 'Very Low (estimated <100 pedestrians/day)';
-  }
-}

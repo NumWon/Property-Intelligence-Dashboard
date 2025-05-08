@@ -40,7 +40,8 @@ export default function MapPanel({ coordinates, onViewMore }) {
     console.log(`MapPanel ${mapIdRef.current}: useEffect triggered`);
     
     // Skip if no coordinates
-    if (!coordinates || !mapRef.current) {
+    if (!coordinates || !coordinates.lat || !coordinates.lng || !mapRef.current) {
+      console.log(`MapPanel ${mapIdRef.current}: Missing coordinates or map ref, skipping initialization`);
       return;
     }
     
@@ -94,19 +95,37 @@ export default function MapPanel({ coordinates, onViewMore }) {
         
         console.log(`MapPanel ${currentMapId}: Creating map in element`, mapRef.current);
         
-        // Instantiate the map
+        // FIXED: Make sure the map div is visible and properly sized before creating the map
+        // Create a small delay to ensure proper DOM rendering and layout calculation
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Check again if the component is still mounted
+        if (!mapRef.current) {
+          console.log(`MapPanel ${currentMapId}: Map ref no longer valid after delay, aborting`);
+          return;
+        }
+        
+        // Instantiate the map with FIXED options
         const map = new window.H.Map(
           mapRef.current,
           defaultLayers.vector.normal.map,
           {
             center: { lat: coordinates.lat, lng: coordinates.lng },
             zoom: 14,
-            pixelRatio: window.devicePixelRatio || 1
+            pixelRatio: window.devicePixelRatio || 1,
+            // Add these options to prevent the lookAtManipulator error
+            renderBaseBackground: {
+              lower: 0,
+              higher: 1
+            }
           }
         );
         
         // Create a unique marker ID for this map instance
         const markerId = `marker-${currentMapId}`;
+        
+        // FIXED: Wait to ensure map is fully initialized before adding UI and behavior
+        await new Promise(resolve => setTimeout(resolve, 50));
         
         // Create default UI and add zoom, panning, etc.
         const ui = window.H.ui.UI.createDefault(map, defaultLayers);
@@ -129,6 +148,11 @@ export default function MapPanel({ coordinates, onViewMore }) {
         
         // Add the marker to the map
         map.addObject(marker);
+        
+        // Force a resize after initialization to ensure proper sizing
+        if (map && map.getViewPort()) {
+          map.getViewPort().resize();
+        }
         
         // Add resize listener
         const resizeListener = () => {
@@ -162,10 +186,10 @@ export default function MapPanel({ coordinates, onViewMore }) {
       }
     };
 
-    // Initialize the map with a slight delay to ensure proper DOM rendering
+    // Initialize the map with a delay to ensure proper DOM rendering
     const initTimer = setTimeout(() => {
       initializeMap();
-    }, 50);
+    }, 250); // FIXED: Increased from 50ms to 250ms for more reliable initialization
 
     // Cleanup function
     return () => {
@@ -188,10 +212,16 @@ export default function MapPanel({ coordinates, onViewMore }) {
         </button>
       </div>
       
+      {/* FIXED: Added explicit height and width styles */}
       <div 
         ref={mapRef} 
         className="h-48 w-full rounded-xl border border-indigo-200 flex items-center justify-center"
-        style={{ position: 'relative', overflow: 'hidden' }} 
+        style={{ 
+          position: 'relative', 
+          overflow: 'hidden',
+          minHeight: '200px',  // Ensure minimum height
+          display: 'block'     // Ensure display is block
+        }} 
         data-component="map-container"
         data-map-id={mapIdRef.current}
       >
