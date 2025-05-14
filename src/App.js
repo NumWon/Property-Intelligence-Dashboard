@@ -122,7 +122,8 @@ function App() {
     else if (title === 'Nearby Businesses' && propertyData?.rawData?.businesses) {
       setViewMoreContent({ 
         title, 
-        content: propertyData.rawData.businesses 
+        content: propertyData.rawData.businesses,
+        coordinates: propertyData.coordinates
       });
     } 
     // For map view, include coordinates and address

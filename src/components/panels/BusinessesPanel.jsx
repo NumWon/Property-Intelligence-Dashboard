@@ -1,52 +1,9 @@
+// src/components/panels/BusinessesPanel.jsx
 import React from 'react';
 
 const BusinessesPanel = ({ data, onViewMore }) => {
   // If we have the updated data structure with additional business types
   const hasExpandedData = data.healthcare || data.schools || data.transit;
-  
-  // Get the most relevant businesses to display in the panel
-  const getDisplayBusinesses = () => {
-    if (!hasExpandedData) {
-      // Use the legacy format
-      return data.businesses ? data.businesses.join(', ') : 'None found';
-    }
-    
-    // Create a prioritized list of businesses from different categories
-    const priorityList = [];
-    
-    // Add one restaurant if available
-    if (data.restaurants && data.restaurants.length > 0) {
-      priorityList.push(`${data.restaurants[0].name} (Restaurant)`);
-    }
-    
-    // Add one retail if available
-    if (data.retail && data.retail.length > 0) {
-      priorityList.push(`${data.retail[0].name} (Retail)`);
-    }
-    
-    // Add one healthcare if available
-    if (data.healthcare && data.healthcare.length > 0) {
-      priorityList.push(`${data.healthcare[0].name} (Healthcare)`);
-    }
-    
-    // Add one school if available
-    if (data.schools && data.schools.length > 0) {
-      priorityList.push(`${data.schools[0].name} (School)`);
-    }
-    
-    // Add one transit option if available
-    if (data.transit && data.transit.length > 0) {
-      priorityList.push(`${data.transit[0].name} (Transit)`);
-    }
-    
-    // Add one gas station if available
-    if (data.fuel && data.fuel.length > 0) {
-      priorityList.push(`${data.fuel[0].name} (Gas)`);
-    }
-    
-    // Get up to 3 items
-    return priorityList.length > 0 ? priorityList.slice(0, 3).join(', ') : 'None found';
-  };
   
   // Count total POIs
   const getTotalPOIs = () => {
@@ -108,40 +65,44 @@ const BusinessesPanel = ({ data, onViewMore }) => {
     
     return 'nearby';
   };
-  
-  // Get category counts
-  const getCategoryCounts = () => {
+
+  // Get the most relevant businesses for display
+  const getClosestBusinesses = () => {
     if (!hasExpandedData) {
-      return null;
+      return data.businesses && data.businesses.length > 0 ? 
+        data.businesses.slice(0, 2).join(', ') : 'None found';
     }
     
-    const categories = [];
+    // Collect all businesses
+    const allBusinesses = [
+      ...(data.restaurants || []),
+      ...(data.retail || []),
+      ...(data.fuel || []),
+      ...(data.schools || []),
+      ...(data.healthcare || []),
+      ...(data.transit || []),
+      ...(data.entertainment || []),
+      ...(data.services || [])
+    ];
     
-    if ((data.restaurants || []).length > 0) {
-      categories.push(`${(data.restaurants || []).length} restaurants`);
-    }
+    // Sort by distance
+    allBusinesses.sort((a, b) => {
+      if (a.distanceMeters !== undefined && b.distanceMeters !== undefined) {
+        return a.distanceMeters - b.distanceMeters;
+      }
+      
+      // Fallback to parsing from distance string
+      const getDistanceValue = (distance) => {
+        const match = distance.match(/(\d+\.?\d*)/);
+        return match ? parseFloat(match[0]) : 999;
+      };
+      
+      return getDistanceValue(a.distance) - getDistanceValue(b.distance);
+    });
     
-    if ((data.retail || []).length > 0) {
-      categories.push(`${(data.retail || []).length} retail`);
-    }
-    
-    if ((data.schools || []).length > 0) {
-      categories.push(`${(data.schools || []).length} schools`);
-    }
-    
-    if ((data.healthcare || []).length > 0) {
-      categories.push(`${(data.healthcare || []).length} healthcare`);
-    }
-    
-    if ((data.transit || []).length > 0) {
-      categories.push(`${(data.transit || []).length} transit`);
-    }
-    
-    if ((data.fuel || []).length > 0) {
-      categories.push(`${(data.fuel || []).length} gas stations`);
-    }
-    
-    return categories.length > 0 ? categories.join(', ') : null;
+    // Get the closest 2 POIs
+    return allBusinesses.length > 0 ? 
+      allBusinesses.slice(0, 2).map(b => b.name).join(', ') : 'None found';
   };
 
   return (
@@ -156,18 +117,53 @@ const BusinessesPanel = ({ data, onViewMore }) => {
         </button>
       </div>
       
+      {/* POI Category Summary */}
+      {hasExpandedData && (
+        <div className="mb-4">
+          <div className="grid grid-cols-4 gap-2">
+            <div className="bg-white border rounded p-1 text-center">
+              <p className="text-xs text-gray-500">Restaurants</p>
+              <p className="text-base font-bold text-red-500">{(data.restaurants || []).length}</p>
+            </div>
+            <div className="bg-white border rounded p-1 text-center">
+              <p className="text-xs text-gray-500">Retail</p>
+              <p className="text-base font-bold text-blue-500">{(data.retail || []).length}</p>
+            </div>
+            <div className="bg-white border rounded p-1 text-center">
+              <p className="text-xs text-gray-500">Gas</p>
+              <p className="text-base font-bold text-green-500">{(data.fuel || []).length}</p>
+            </div>
+            <div className="bg-white border rounded p-1 text-center">
+              <p className="text-xs text-gray-500">Schools</p>
+              <p className="text-base font-bold text-yellow-500">{(data.schools || []).length}</p>
+            </div>
+            <div className="bg-white border rounded p-1 text-center">
+              <p className="text-xs text-gray-500">Health</p>
+              <p className="text-base font-bold text-pink-500">{(data.healthcare || []).length}</p>
+            </div>
+            <div className="bg-white border rounded p-1 text-center">
+              <p className="text-xs text-gray-500">Transit</p>
+              <p className="text-base font-bold text-purple-500">{(data.transit || []).length}</p>
+            </div>
+            <div className="bg-white border rounded p-1 text-center">
+              <p className="text-xs text-gray-500">Entertain</p>
+              <p className="text-base font-bold text-amber-500">{(data.entertainment || []).length}</p>
+            </div>
+            <div className="bg-white border rounded p-1 text-center">
+              <p className="text-xs text-gray-500">Services</p>
+              <p className="text-base font-bold text-cyan-500">{(data.services || []).length}</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="space-y-2">
         <p className="text-gray-700">
-          {getDisplayBusinesses()}
+          <span className="font-medium">Closest POIs:</span> {getClosestBusinesses()}
         </p>
         <p className="text-gray-700">
           <span className="font-medium">Total POIs:</span> {getTotalPOIs()}
         </p>
-        {getCategoryCounts() && (
-          <p className="text-gray-700 text-sm">
-            <span className="font-medium">Categories:</span> {getCategoryCounts()}
-          </p>
-        )}
         <p className="text-gray-700">
           <span className="font-medium">Distance:</span> {getDistanceText()}
         </p>
