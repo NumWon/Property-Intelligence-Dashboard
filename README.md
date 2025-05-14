@@ -1,70 +1,122 @@
-# Getting Started with Create React App
+# Property Analysis Tool
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React-based application for analyzing commercial and residential properties, providing comprehensive insights on traffic patterns, nearby businesses, demographics, and more using HERE Maps API integration.
 
-## Available Scripts
+<img width="1512" alt="image" src="https://github.com/user-attachments/assets/eea66bd8-087e-4d96-aea5-6cbdcb17d259" />
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+- **Address Search**: Easily search for any property address
+- **Traffic Analysis**: Get detailed traffic patterns, vehicle counts, and peak hours
+- **Nearby Businesses**: Discover restaurants, retail, and services near the property
+- **Location Mapping**: Interactive maps showing the exact property location
+- **Demographics Data**: Population and income statistics for the area
+- **Zoning Information**: Zoning classification and bylaw links
+- **Property Notes**: Add and track notes for each analyzed property
+- **Saved Properties**: Automatically save and access previously analyzed properties
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Technical Implementation Details
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Traffic Estimation
 
-### `npm test`
+The application uses surrounding routes to estimate property traffic by:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. Creating points around the property location
+2. Getting routes between these points to analyze traffic patterns
+3. Calculating average traffic delays and conditions
+4. Estimating daily vehicle counts based on road type and time of day
+5. Determining foot traffic based on vehicle count and location characteristics
 
-### `npm run build`
+### Interactive Maps
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Maps are implemented using the HERE Maps JavaScript API v3, with features including:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- Custom property markers
+- Dynamic map initialization
+- Responsive sizing
+- Expanded view in modal dialog
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Data Storage
 
-### `npm run eject`
+Property search history is stored in the browser's localStorage, allowing users to:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+- Save property analyses between sessions
+- Quickly access previously analyzed properties
+- Track property analysis statistics
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+------------------------------------------------------------------------------------------------------------------
+## Getting Started
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Prerequisites
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- Node.js (v14+)
+- npm or yarn
+- HERE Maps API credentials
 
-## Learn More
+### Installation
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/property-analysis-tool.git
+   cd property-analysis-tool
+   ```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
 
-### Code Splitting
+3. Create a `.env` file in the root directory with your HERE Maps API credentials:
+   ```
+   REACT_APP_HERE_API_KEY=your_api_key_here
+   REACT_APP_HERE_APP_ID=your_app_id_here
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+4. Start the development server:
+   ```bash
+   npm start
+   # or
+   yarn start
+   ```
 
-### Analyzing the Bundle Size
+### Obtaining HERE Maps API Credentials
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+1. Sign up for a developer account at [HERE Developer Portal](https://developer.here.com/)
+2. Create a new project in the developer dashboard
+3. Generate API keys for your project
+4. Add the API key and App ID to your `.env` file as shown above
 
-### Making a Progressive Web App
+## Usage
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+1. **Search for a Property**:
+   - Enter a property address in the search bar and click "Analyze Property"
+   - The application will geocode the address and retrieve relevant data
 
-### Advanced Configuration
+2. **Viewing Property Data**:
+   - Traffic data shows estimated vehicle counts, peak hours, and pedestrian activity
+   - Nearby businesses panel displays local restaurants and retail options
+   - Map panel shows the exact location of the property
+   - Additional panels show demographics, zoning information, and property notes
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+3. **Detailed Information**:
+   - Click "More Info" on any panel to view detailed data in a modal
+   - Traffic data includes current conditions and comprehensive statistics
+   - Business data shows categorized nearby establishments with distances
+   - Map view provides an expanded interactive map with the property marker
 
-### Deployment
+4. **Saved Properties**:
+   - Previously analyzed properties are automatically saved in the left sidebar
+   - Click on any saved property to quickly retrieve its analysis again
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
 
-### `npm run build` fails to minify
+## License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## Acknowledgements
+
+- [HERE Maps API](https://developer.here.com/) for location services
+- [React](https://reactjs.org/) for the UI framework
+- [Tailwind CSS](https://tailwindcss.com/) for styling
