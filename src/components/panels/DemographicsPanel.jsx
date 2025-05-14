@@ -2,24 +2,34 @@ import React from 'react';
 
 const DemographicsPanel = ({ data, onViewMore }) => {
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-indigo-700">Demographics</h2>
+    <div className="bg-white p-4 shadow-md rounded-2xl border border-gray-200">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-xl font-semibold text-indigo-700">Demographics</h2>
         <button 
           onClick={onViewMore}
-          className="text-indigo-600 border border-indigo-600 px-3 py-1 rounded hover:bg-indigo-50 text-sm"
+          className="text-sm text-indigo-600 border border-indigo-300 px-2 py-1 rounded hover:bg-indigo-50"
         >
           More Info
         </button>
       </div>
       
-      <div className="space-y-2">
-        <p className="text-gray-700">
-          <span className="font-medium">Population:</span> {data.population}
-        </p>
-        <p className="text-gray-700">
-          <span className="font-medium">Median Income:</span> {data.medianIncome}
-        </p>
+      <div className="space-y-3">
+        <div className="flex items-center">
+          <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Local Population</p>
+            <p className="text-lg font-medium">{data.population}</p>
+          </div>
+        </div>
+        
+        <div className="bg-gray-50 p-2 rounded">
+          <p className="text-sm text-gray-500">Median Income</p>
+          <p className="font-medium">{data.medianIncome}</p>
+        </div>
       </div>
     </div>
   );
