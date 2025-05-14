@@ -156,18 +156,6 @@ const BusinessesPanel = ({ data, onViewMore }) => {
           </div>
         </div>
       )}
-      
-      <div className="space-y-2">
-        <p className="text-gray-700">
-          <span className="font-medium">Closest POIs:</span> {getClosestBusinesses()}
-        </p>
-        <p className="text-gray-700">
-          <span className="font-medium">Total POIs:</span> {getTotalPOIs()}
-        </p>
-        <p className="text-gray-700">
-          <span className="font-medium">Distance:</span> {getDistanceText()}
-        </p>
-      </div>
     </div>
   );
 };

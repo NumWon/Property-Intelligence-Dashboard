@@ -22,16 +22,43 @@ function App() {
   
   // Load saved properties from local storage on component mount
   useEffect(() => {
-    const savedItems = localStorage.getItem('savedProperties');
-    if (savedItems) {
-      setSavedProperties(JSON.parse(savedItems));
+    try {
+      const savedItems = localStorage.getItem('savedProperties');
+      // Only update state if there are actually saved items
+      if (savedItems && savedItems !== "[]") {
+        try {
+          const parsedItems = JSON.parse(savedItems);
+          
+          // Validate that we have an array
+          if (Array.isArray(parsedItems)) {
+            console.log("Loaded saved properties from localStorage:", parsedItems);
+            setSavedProperties(parsedItems);
+          } else {
+            console.error("Saved properties is not an array:", parsedItems);
+            // Reset if data is invalid
+            localStorage.removeItem('savedProperties');
+          }
+        } catch (parseError) {
+          console.error("Error parsing saved properties JSON:", parseError);
+          // Remove invalid data from localStorage
+          localStorage.removeItem('savedProperties');
+        }
+      }
+    } catch (error) {
+      console.error("Error accessing localStorage:", error);
     }
   }, []);
 
   // Save properties to local storage when they change
   useEffect(() => {
-    if (savedProperties.length >= 0) {
-      localStorage.setItem('savedProperties', JSON.stringify(savedProperties));
+    try {
+      // Only save to localStorage if we have properties to save
+      if (savedProperties.length > 0) {
+        console.log("Saving properties to localStorage:", savedProperties);
+        localStorage.setItem('savedProperties', JSON.stringify(savedProperties));
+      }
+    } catch (error) {
+      console.error("Error saving properties to localStorage:", error);
     }
   }, [savedProperties]);
   
@@ -63,11 +90,8 @@ function App() {
         // Store complete traffic data instead of simplified version
         traffic: trafficData, 
         businesses: {
-          businesses: businessesData.restaurants.map(b => b.name)
-            .concat(businessesData.retail.map(b => b.name))
-            .slice(0, 3),
-          distance: `within ${businessesData.restaurants.length > 0 ? 
-                    businessesData.restaurants[0].distance : '1-2 km'}`
+          ...businessesData,
+          coordinates: coordinates 
         },
         demographics: {
           population: '42,500 within 1km',
@@ -84,14 +108,27 @@ function App() {
         // Save the raw data for advanced views (now contains full objects)
         rawData: {
           traffic: trafficData,
-          businesses: businessesData,
+          businesses: {
+            ...businessesData,
+            coordinates: coordinates
+          },
           coordinates
         }
       };
       
       // Save to saved properties if not already there
-      if (!savedProperties.includes(query)) {
-        setSavedProperties(prev => [...prev, query]);
+      try {
+        if (!savedProperties.includes(query)) {
+          console.log("Adding new property to saved list:", query);
+          setSavedProperties(prev => [...prev, query]);
+        }
+        
+        // Update state with the fetched data
+        setPropertyData(newPropertyData);
+      } catch (error) {
+        console.error("Error saving property to list:", error);
+        // Still set the property data even if saving fails
+        setPropertyData(newPropertyData);
       }
       
       // Update state with the fetched data
@@ -123,7 +160,6 @@ function App() {
       setViewMoreContent({ 
         title, 
         content: propertyData.rawData.businesses,
-        coordinates: propertyData.coordinates
       });
     } 
     // For map view, include coordinates and address
@@ -156,14 +192,29 @@ function App() {
 
   // Handle property removal from saved properties
   const handleRemoveProperty = (property) => {
-    const updatedProperties = savedProperties.filter(p => p !== property);
-    setSavedProperties(updatedProperties);
-    // No need to handle localStorage separately as the useEffect will update it
-    
-    // If the current search query matches the property being removed, clear it
-    if (searchQuery === property) {
-      setSearchQuery('');
-      setPropertyData(null);
+    try {
+      console.log("Removing property:", property);
+      
+      // Create the updated array 
+      const updatedProperties = savedProperties.filter(p => p !== property);
+      
+      // Update state
+      setSavedProperties(updatedProperties);
+      
+      // If the updated array is empty, clear localStorage manually
+      if (updatedProperties.length === 0) {
+        console.log("Clearing saved properties from localStorage");
+        localStorage.removeItem('savedProperties');
+      }
+      
+      // If the current search query matches the property being removed, clear it
+      if (searchQuery === property) {
+        setSearchQuery('');
+        setPropertyData(null);
+      }
+    } catch (error) {
+      console.error("Error removing property:", error);
+      alert("There was an issue removing the property. Please try again.");
     }
   };
   
