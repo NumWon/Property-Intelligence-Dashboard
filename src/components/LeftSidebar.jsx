@@ -1,7 +1,6 @@
-// src/components/LeftSidebar.jsx (Update if needed)
 import React from 'react';
 
-export default function LeftSidebar({ savedProperties = [], onSelectProperty }) {
+export default function LeftSidebar({ savedProperties = [], onSelectProperty, onRemoveProperty }) {
   return (
     <div className="w-64 bg-indigo-100 p-6 overflow-y-auto shadow-inner">
       <h2 className="text-2xl font-bold text-indigo-800 mb-4">Saved Properties</h2>
@@ -13,10 +12,24 @@ export default function LeftSidebar({ savedProperties = [], onSelectProperty }) 
           {savedProperties.map((property, i) => (
             <li 
               key={i} 
-              className="text-sm text-indigo-900 bg-white p-2 rounded-lg shadow-sm cursor-pointer hover:bg-indigo-50"
-              onClick={() => onSelectProperty(property)}
+              className="text-sm text-indigo-900 bg-white p-2 rounded-lg shadow-sm hover:bg-indigo-50 flex justify-between items-center"
             >
-              {property}
+              <span 
+                className="cursor-pointer flex-grow truncate"
+                onClick={() => onSelectProperty(property)}
+              >
+                {property}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent triggering onSelectProperty
+                  onRemoveProperty(property);
+                }}
+                className="ml-2 text-red-500 hover:text-red-700 focus:outline-none"
+                aria-label={`Remove ${property}`}
+              >
+                ✕
+              </button>
             </li>
           ))}
         </ul>

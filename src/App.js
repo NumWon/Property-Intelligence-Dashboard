@@ -30,7 +30,7 @@ function App() {
 
   // Save properties to local storage when they change
   useEffect(() => {
-    if (savedProperties.length > 0) {
+    if (savedProperties.length >= 0) {
       localStorage.setItem('savedProperties', JSON.stringify(savedProperties));
     }
   }, [savedProperties]);
@@ -152,11 +152,24 @@ function App() {
       </div>
     </div>
   );
+
+  // Handle property removal from saved properties
+  const handleRemoveProperty = (property) => {
+    const updatedProperties = savedProperties.filter(p => p !== property);
+    setSavedProperties(updatedProperties);
+    // No need to handle localStorage separately as the useEffect will update it
+    
+    // If the current search query matches the property being removed, clear it
+    if (searchQuery === property) {
+      setSearchQuery('');
+      setPropertyData(null);
+    }
+  };
   
   return (
     <div className="flex min-h-screen bg-blue-50">
       {/* Left Sidebar */}
-      <LeftSidebar savedProperties={savedProperties} onSelectProperty={handleSearch} />
+      <LeftSidebar savedProperties={savedProperties} onSelectProperty={handleSearch} onRemoveProperty={handleRemoveProperty} />
       
       {/* Main Content */}
       <div className="flex-1 p-6">
