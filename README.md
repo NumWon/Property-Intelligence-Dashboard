@@ -2,7 +2,8 @@
 
 A React-based application for analyzing commercial and residential properties, providing comprehensive insights on traffic patterns, nearby businesses, demographics, and more using HERE Maps API integration.
 
-<img width="1512" alt="image" src="https://github.com/user-attachments/assets/eea66bd8-087e-4d96-aea5-6cbdcb17d259" />
+<img width="1512" alt="image" src="https://github.com/user-attachments/assets/974e87f8-84b9-493c-aef5-adcfc6ac00fb" />
+
 
 ## Features
 
