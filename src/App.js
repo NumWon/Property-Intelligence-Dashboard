@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { geocodeAddress } from './services/geocodingService';
 import { estimatePropertyTraffic } from './services/routingService';
 import { getNearbyBusinesses } from './services/poiService';
+import { fetchDemographics } from './services/demographicsService';
+import { testGeoapifyApiConfig } from './services/geoapifyApiConfig';
 import LeftSidebar from './components/LeftSidebar';
 import SearchBar from './components/SearchBar';
 import TrafficPanel from './components/panels/TrafficPanel';
@@ -19,6 +21,16 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [propertyData, setPropertyData] = useState(null);
   const [savedProperties, setSavedProperties] = useState([]);
+
+  useEffect(() => {
+    // Test API configurations when the app loads
+    const testApis = async () => {
+      await testGeoapifyApiConfig();
+      // You could also test your HERE API here if needed
+    };
+    
+    testApis();
+  }, []);
   
   // Load saved properties from local storage on component mount
   useEffect(() => {
@@ -75,13 +87,15 @@ function App() {
       
       console.log("Analyzing property at coordinates:", coordinates);
       
-      // Step 2: Get traffic data and nearby businesses in parallel
-      const [trafficData, businessesData] = await Promise.all([
+      // Step 2: Get traffic data, demographics, and nearby businesses in parallel
+      const [trafficData, demographicsData, businessesData] = await Promise.all([
         estimatePropertyTraffic(coordinates),
+        fetchDemographics(coordinates),
         getNearbyBusinesses(coordinates)
       ]);
       
       console.log("Received traffic data:", trafficData);
+      console.log("Received demographics data:", demographicsData);
       
       // Step 3: Construct the property data object
       const newPropertyData = {
@@ -94,8 +108,13 @@ function App() {
           coordinates: coordinates 
         },
         demographics: {
-          population: '42,500 within 1km',
-          medianIncome: '$87,200'
+          population: demographicsData.population,
+          medianIncome: demographicsData.medianIncome,
+          // Additional demographics data available for the "More Info" view
+          ageDistribution: demographicsData.ageDistribution,
+          education: demographicsData.education,
+          householdSize: demographicsData.householdSize,
+          employmentRate: demographicsData.employmentRate
         },
         zoning: {
           zoning: 'CR (Commercial Residential)',
@@ -112,6 +131,7 @@ function App() {
             ...businessesData,
             coordinates: coordinates
           },
+          demographics: demographicsData.rawData,
           coordinates
         }
       };
