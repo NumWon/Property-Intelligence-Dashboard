@@ -3,7 +3,6 @@ import { geocodeAddress } from './services/geocodingService';
 import { estimatePropertyTraffic } from './services/routingService';
 import { getNearbyBusinesses } from './services/poiService';
 import { fetchDemographics } from './services/demographicsService';
-import { testGeoapifyApiConfig } from './services/geoapifyApiConfig';
 import LeftSidebar from './components/LeftSidebar';
 import SearchBar from './components/SearchBar';
 import TrafficPanel from './components/panels/TrafficPanel';
@@ -21,16 +20,6 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [propertyData, setPropertyData] = useState(null);
   const [savedProperties, setSavedProperties] = useState([]);
-
-  useEffect(() => {
-    // Test API configurations when the app loads
-    const testApis = async () => {
-      await testGeoapifyApiConfig();
-      // You could also test your HERE API here if needed
-    };
-    
-    testApis();
-  }, []);
   
   // Load saved properties from local storage on component mount
   useEffect(() => {
@@ -110,11 +99,6 @@ function App() {
         demographics: {
           population: demographicsData.population,
           medianIncome: demographicsData.medianIncome,
-          // Additional demographics data available for the "More Info" view
-          ageDistribution: demographicsData.ageDistribution,
-          education: demographicsData.education,
-          householdSize: demographicsData.householdSize,
-          employmentRate: demographicsData.employmentRate
         },
         zoning: {
           zoning: 'CR (Commercial Residential)',

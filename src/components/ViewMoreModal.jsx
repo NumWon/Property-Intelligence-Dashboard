@@ -857,115 +857,30 @@ export default function ViewMoreModal({ title, content, onClose }) {
     if (title === 'Demographics') {
       return (
         <div className="space-y-6">
-          {/* Population and Income Section */}
-          <div className="border-b pb-4">
-            <h3 className="text-lg font-semibold mb-3">Population & Income</h3>
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-3">About This Area</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="border rounded-lg p-3">
-                <p className="text-sm text-gray-500">Population</p>
-                <p className="text-xl font-bold mt-1">
-                  {content.population}
-                </p>
-              </div>
-              
-              <div className="border rounded-lg p-3">
-                <p className="text-sm text-gray-500">Median Income</p>
-                <p className="text-xl font-bold mt-1">
-                  {content.medianIncome}
-                </p>
-              </div>
+            {content.location && (
+              <p className="mb-2"><span className="font-medium">Location:</span> {content.location}</p>
+            )}
+            
+            <p className="mb-2">
+              <span className="font-medium">Population:</span> {content.population}
+            </p>
+            
+            <div className="mt-4 bg-blue-50 p-4 rounded-lg">
+              <p className="text-blue-800 text-sm">
+                <span className="font-medium">Coming Soon:</span> Enhanced demographics including median income, age distribution, and education levels.
+              </p>
             </div>
           </div>
           
-          {/* Age Distribution Section */}
-          {content.ageDistribution && (
-            <div className="border-b pb-4">
-              <h3 className="text-lg font-semibold mb-3">Age Distribution</h3>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <div className="bg-blue-50 p-2 rounded text-center">
-                  <p className="text-sm text-gray-600">Under 18</p>
-                  <p className="font-bold text-blue-700">{content.ageDistribution.under18}</p>
-                </div>
-                <div className="bg-green-50 p-2 rounded text-center">
-                  <p className="text-sm text-gray-600">18-35</p>
-                  <p className="font-bold text-green-700">{content.ageDistribution.age18to35}</p>
-                </div>
-                <div className="bg-yellow-50 p-2 rounded text-center">
-                  <p className="text-sm text-gray-600">36-65</p>
-                  <p className="font-bold text-yellow-700">{content.ageDistribution.age36to65}</p>
-                </div>
-                <div className="bg-purple-50 p-2 rounded text-center">
-                  <p className="text-sm text-gray-600">65+</p>
-                  <p className="font-bold text-purple-700">{content.ageDistribution.above65}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Education Section */}
-          {content.education && (
-            <div className="border-b pb-4">
-              <h3 className="text-lg font-semibold mb-3">Education</h3>
-              
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <span className="w-32 text-sm text-gray-600">High School:</span>
-                  <div className="flex-1 h-5 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-indigo-600 rounded-full" 
-                      style={{ width: content.education.highSchool }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 font-medium">{content.education.highSchool}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <span className="w-32 text-sm text-gray-600">Bachelor's:</span>
-                  <div className="flex-1 h-5 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-indigo-600 rounded-full" 
-                      style={{ width: content.education.bachelor }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 font-medium">{content.education.bachelor}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <span className="w-32 text-sm text-gray-600">Graduate:</span>
-                  <div className="flex-1 h-5 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-indigo-600 rounded-full" 
-                      style={{ width: content.education.graduate }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 font-medium">{content.education.graduate}</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Additional Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {content.householdSize && (
-              <div className="border rounded-lg p-3">
-                <p className="text-sm text-gray-500">Avg. Household Size</p>
-                <p className="text-xl font-bold mt-1">{content.householdSize}</p>
-              </div>
-            )}
-            
-            {content.employmentRate && (
-              <div className="border rounded-lg p-3">
-                <p className="text-sm text-gray-500">Employment Rate</p>
-                <p className="text-xl font-bold mt-1">{content.employmentRate}</p>
-              </div>
-            )}
-          </div>
-          
-          {/* Data Source */}
-          <div className="text-xs text-gray-500 mt-2">
-            <p>Source: Geoapify Demographics API</p>
+          <div className="bg-gray-50 p-3 rounded text-sm text-gray-600">
+            <p className="font-medium mb-1">Data Sources:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Population data: Geoapify Places API</li>
+              <li>Future income data will use Statistics Canada census information</li>
+            </ul>
           </div>
         </div>
       );

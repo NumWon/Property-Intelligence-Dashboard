@@ -1,7 +1,6 @@
 export const GEOAPIFY_CONFIG = {
 	api_key: process.env.REACT_APP_GEOAPIFY_API_KEY,
 	base_url: 'https://api.geoapify.com/v2',
-	demographics_url: 'https://api.geoapify.com/v2/demographics',
 	places_url: 'https://api.geoapify.com/v2/places',
 	geocoding_url: 'https://api.geoapify.com/v1/geocode'
   };

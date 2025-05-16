@@ -1,6 +1,9 @@
+// src/components/panels/DemographicsPanel.jsx
 import React from 'react';
 
 const DemographicsPanel = ({ data, onViewMore }) => {
+  const hasPopulation = data.population && data.population !== "Data unavailable";
+  
   return (
     <div className="bg-white p-4 shadow-md rounded-2xl border border-gray-200">
       <div className="flex justify-between items-center mb-2">
@@ -14,6 +17,10 @@ const DemographicsPanel = ({ data, onViewMore }) => {
       </div>
       
       <div className="space-y-3">
+        {data.location && (
+          <div className="text-sm text-gray-600 mb-2">{data.location}</div>
+        )}
+        
         <div className="flex items-center">
           <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -22,7 +29,9 @@ const DemographicsPanel = ({ data, onViewMore }) => {
           </div>
           <div>
             <p className="text-sm text-gray-500">Population</p>
-            <p className="text-lg font-medium">{data.population}</p>
+            <p className={`text-lg font-medium ${hasPopulation ? 'text-gray-800' : 'text-gray-400 italic'}`}>
+              {hasPopulation ? data.population : "Data unavailable"}
+            </p>
           </div>
         </div>
         
@@ -34,7 +43,7 @@ const DemographicsPanel = ({ data, onViewMore }) => {
           </div>
           <div>
             <p className="text-sm text-gray-500">Median Income</p>
-            <p className="text-lg font-medium">{data.medianIncome}</p>
+            <p className="text-lg font-medium text-gray-400 italic">Data unavailable</p>
           </div>
         </div>
       </div>
