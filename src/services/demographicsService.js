@@ -1,8 +1,19 @@
-// src/services/demographicsService.js
-import { GEOAPIFY_CONFIG, getGeoapifyUrl } from './geoapifyApiConfig';
+// src/services/demographicsService.js - Canadian-only demographics service
+import { fetchCanadianDemographics } from './censusMapperService';
 
 /**
- * Fetch demographics data from Geoapify
+ * Determine if coordinates are in Canada
+ * @param {number} lat - Latitude
+ * @param {number} lng - Longitude
+ * @returns {boolean} - True if coordinates are in Canada
+ */
+const isInCanada = (lat, lng) => {
+  // Rough bounding box for Canada
+  return lat >= 41.7 && lat <= 83.1 && lng >= -141.0 && lng <= -52.6;
+};
+
+/**
+ * Fetch demographics data for Canadian coordinates
  * @param {Object} coordinates - The lat/lng coordinates {lat, lng}
  * @returns {Object} - Demographics data
  */
@@ -10,59 +21,114 @@ export const fetchDemographics = async (coordinates) => {
   try {
     console.log("Fetching demographics for coordinates:", coordinates);
 
-    // Use the helper function to get the URL
-    const url = getGeoapifyUrl('places', {
-      lat: coordinates.lat,
-      lon: coordinates.lng,
-      type: 'administrative',
-      limit: 1
-    });
+    // Check if coordinates are in Canada
+    if (!isInCanada(coordinates.lat, coordinates.lng)) {
+      console.log("Coordinates are outside Canada");
+      return {
+        population: "Data unavailable",
+        location: "Location outside Canada",
+        medianIncome: "Data unavailable",
+        dataSource: "Service limited to Canadian locations",
+        rawData: null
+      };
+    }
+
+    console.log("Coordinates are in Canada, using CensusMapper API");
     
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`Places API failed with status: ${response.status}`);
+    try {
+      // Use CensusMapper API for Canadian demographics
+      const censusMapperData = await fetchCanadianDemographics(coordinates);
+      
+      if (censusMapperData && censusMapperData.population !== "Data unavailable") {
+        return {
+          population: censusMapperData.population,
+          location: censusMapperData.location,
+          medianIncome: censusMapperData.medianIncome,
+          averageIncome: censusMapperData.averageIncome,
+          medianAge: censusMapperData.medianAge,
+          medianHomeValue: censusMapperData.medianHomeValue,
+          averageHomeValue: censusMapperData.averageHomeValue,
+          unemploymentRate: censusMapperData.unemploymentRate,
+          labourParticipationRate: censusMapperData.labourParticipationRate,
+          universityEducation: censusMapperData.universityEducation,
+          populationDensity: censusMapperData.populationDensity,
+          province: censusMapperData.province,
+          dataSource: censusMapperData.dataSource,
+          regionLevel: censusMapperData.regionLevel,
+          distance: censusMapperData.distance,
+          rawData: censusMapperData.rawData
+        };
+      }
+    } catch (error) {
+      console.warn('CensusMapper API failed:', error.message);
     }
     
-    const data = await response.json();
-    console.log("Received places data:", data);
-    
-    // Extract population and location data
-    let population = "Data unavailable";
-    let location = "";
-    
-    if (data.features && data.features.length > 0) {
-      const properties = data.features[0].properties;
-      
-      // Get location name
-      const city = properties.city || properties.name;
-      const state = properties.state || properties.county;
-      
-      if (city && state) {
-        location = `${city}, ${state}`;
-      } else if (city) {
-        location = city;
-      }
-      
-      // Extract population if available
-      if (properties.population) {
-        population = `${properties.population.toLocaleString()}`;
-      }
-    }
-    
+    // If CensusMapper fails, return basic Canadian location info
     return {
-      population: population,
-      location: location,
-      medianIncome: "Data unavailable", // Placeholder for future enhancement
-      rawData: data // Store the full response for reference
+      population: "Data temporarily unavailable",
+      location: "Canadian location",
+      medianIncome: "Data temporarily unavailable",
+      dataSource: "CensusMapper API (temporarily unavailable)",
+      rawData: null
     };
+    
   } catch (error) {
-    console.error('Error fetching demographics data:', error);
+    console.error('Error fetching Canadian demographics:', error);
     return {
       population: "Data unavailable",
-      location: "",
+      location: "Unknown Canadian location",
       medianIncome: "Data unavailable",
+      dataSource: "Error occurred",
       rawData: null
     };
   }
+};
+
+/**
+ * Test the demographics service with known Canadian coordinates
+ * @param {Object} testCoordinates - Optional test coordinates
+ * @returns {Object} - Test results
+ */
+export const testDemographicsService = async (testCoordinates) => {
+  const testLocations = [
+    { name: "Toronto, ON", lat: 43.6532, lng: -79.3832 },
+    { name: "Vancouver, BC", lat: 49.2827, lng: -123.1207 },
+    { name: "Montreal, QC", lat: 45.5017, lng: -73.5673 },
+    { name: "Calgary, AB", lat: 51.0447, lng: -114.0719 },
+    ...(testCoordinates ? [{ name: "Test Location", ...testCoordinates }] : [])
+  ];
+  
+  console.log('Testing Canadian demographics service...');
+  
+  const results = [];
+  
+  for (const location of testLocations) {
+    try {
+      console.log(`Testing ${location.name}...`);
+      const demographics = await fetchDemographics({
+        lat: location.lat,
+        lng: location.lng
+      });
+      
+      results.push({
+        location: location.name,
+        success: demographics.population !== "Data unavailable",
+        data: demographics
+      });
+      
+      // Rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+    } catch (error) {
+      console.error(`Test failed for ${location.name}:`, error);
+      results.push({
+        location: location.name,
+        success: false,
+        error: error.message
+      });
+    }
+  }
+  
+  console.log('Test results:', results);
+  return results;
 };
